@@ -99,6 +99,9 @@ export class EntityTable extends LitElement implements RestAction {
           history.push(data.value);
           this.entities[idx].value_numeric_history = history.splice(-50);
         }
+        else if (Array.isArray(data.values)){
+          this.entities[idx].value_numeric_history = data.values.splice(-50);
+        }
 
         delete data.id;
         delete data.domain;
