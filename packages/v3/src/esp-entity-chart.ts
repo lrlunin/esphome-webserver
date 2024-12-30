@@ -1,5 +1,6 @@
 import { html, css, LitElement, TemplateResult, nothing } from "lit";
 import { customElement, state, property } from "lit/decorators.js";
+import { format } from "date-fns";
 import {
   Chart,
   Colors,
@@ -22,6 +23,7 @@ Chart.register(
 @customElement("esp-entity-chart")
 export class ChartElement extends LitElement {
   @property({ type: Array }) chartdata = [];
+  @property({ type: Array }) datatime = [];
   private chartSubComponent: Chart;
 
   constructor() {
@@ -32,7 +34,7 @@ export class ChartElement extends LitElement {
     super.updated(changedProperties);
     if (changedProperties.has("chartdata")) {
       this.chartSubComponent.data.datasets[0].data = this.chartdata;
-      this.chartSubComponent.data.labels = this.chartdata;
+      this.chartSubComponent.data.labels = this.datatime.map((time) => format(new Date(time), "HH:mm:ss"));
       this.chartSubComponent?.update();
     }
   }
@@ -42,7 +44,7 @@ export class ChartElement extends LitElement {
     this.chartSubComponent = new Chart(ctx, {
       type: "line",
       data: {
-        labels: this.chartdata,
+        labels: this.datatime,
         datasets: [
           {
             data: this.chartdata,
@@ -52,8 +54,9 @@ export class ChartElement extends LitElement {
         ],
       },
       options: {
+        animation: { duration: 0 },
         plugins: { legend: { display: false } },
-        scales: { x: { display: false }, y: { position: "right" } },
+        scales: { x: { display: true }, y: { position: "right" } },
         responsive: true,
         maintainAspectRatio: false,
       },

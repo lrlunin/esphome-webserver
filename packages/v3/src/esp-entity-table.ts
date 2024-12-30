@@ -47,6 +47,7 @@ interface entityConfig {
   effect?: string;
   has_action?: boolean;
   value_numeric_history: number[];
+  value_timestamp_history: Date[];
   uom?: string;
   is_disabled_by_default?: boolean;
 }
@@ -90,17 +91,31 @@ export class EntityTable extends LitElement implements RestAction {
     super.connectedCallback();
 
     window.source?.addEventListener('state', (e: Event) => {
+      const timestamp = new Date();
       const messageEvent = e as MessageEvent;
       const data = JSON.parse(messageEvent.data);
       let idx = this.entities.findIndex((x) => x.unique_id === data.id);
       if (idx != -1 && data.id) {
         if (typeof data.value === 'number') {
           let history = [...this.entities[idx].value_numeric_history];
+          let timestamps = [...this.entities[idx].value_timestamp_history];
           history.push(data.value);
+          timestamps.push(timestamp);
           this.entities[idx].value_numeric_history = history.splice(-50);
+          this.entities[idx].value_timestamp_history = timestamps.splice(-50);
         }
         else if (Array.isArray(data.values)){
-          this.entities[idx].value_numeric_history = data.values.splice(-50);
+          let values = data.values;
+          let timestamps = data.timestamps;
+          // find index of first occurence of null in data.values
+          let nullIndex = data.values.findIndex((x) => x === null);
+          // if null is found, take all values before
+          if (nullIndex > -1) {
+            values = values.slice(0, nullIndex);
+            timestamps = timestamps.slice(0, nullIndex);
+          }
+          this.entities[idx].value_numeric_history = values.reverse();
+          this.entities[idx].value_timestamp_history = timestamps.reverse().map((x: number) => new Date( timestamp.getTime() - x ));
         }
 
         delete data.id;
@@ -190,6 +205,7 @@ export class EntityTable extends LitElement implements RestAction {
         entity_category: data.entity_category,
         sorting_group: data.sorting_group ?? (EntityTable.ENTITY_CATEGORIES[parseInt(data.entity_category)] || EntityTable.ENTITY_UNDEFINED),
         value_numeric_history: [data.value],
+        value_timestamp_history: [new Date()],
       } as entityConfig;
       entity.has_action = this.hasAction(entity);
       if (entity.has_action) {
@@ -316,9 +332,10 @@ export class EntityTable extends LitElement implements RestAction {
                         ? this.control(component)
                         : html`<div>${component.state}</div>`}
                     </div>
-                    ${component.domain === "sensor"
+                    ${component.domain === "sensor" || component.domain === "history_container"
                       ? html`<esp-entity-chart
                           .chartdata="${component.value_numeric_history}"
+                          .datatime="${component.value_timestamp_history}"
                         ></esp-entity-chart>`
                       : nothing}
                   </div>
@@ -337,7 +354,7 @@ export class EntityTable extends LitElement implements RestAction {
   }
 
   _handleEntityRowClick(e: any) {
-    if (e?.currentTarget?.domain === "sensor") {
+    if (e?.currentTarget?.domain === "sensor" || e?.currentTarget?.domain === "history_container") {
       if (!e?.ctrlKey) e.stopPropagation();
       e?.currentTarget?.classList.toggle(
         "expanded",
